@@ -33,8 +33,8 @@ $(document).ready(function () {
       address: $("#address").val(),
       title: $("#title").val(),
       type: $("#type").val(),
-      main: $("#main").prop("checked"),
-      billing: $("#billing").prop("checked"),
+      main: Number($("#main").prop("checked")),
+      billing: Number($("#billing").prop("checked")),
       client_id: selectedClientId
     };
     addClientContact(data);
@@ -59,7 +59,7 @@ $(document).ready(function () {
           );
           setTimeout(function () {
             location.reload();
-          },3000);
+          },1000);
         } else {
           ajaxFinish();
           showAjaxError(response);
