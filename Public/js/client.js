@@ -4,12 +4,13 @@ $(document).ready(function () {
   const clientResults = $("#client-results");
   const cancelButton = $("#cancel-button");
   let clients = [];
-  let user = '';
-  let searchTerm = '';
+  let user = "";
+  let searchTerm = "";
+  let selectedClientId = "";
 
   searchInput.on("input", function () {
     searchTerm = $(this).val();
-    if (searchTerm.length >= 1) {
+    if (searchTerm.length >= 2) {
       getSearchResults(searchTerm);
     } else {
       clearResults();
@@ -20,6 +21,53 @@ $(document).ready(function () {
     clearResults();
     searchInput.val("");
   });
+
+  $("#client-contact-form").on("submit", function (event) {
+    event.preventDefault();
+    $("#add-client-contact-button").button('loading');
+    const data = {
+      first_name: $("#first_name").val(),
+      last_name: $("#last_name").val(),
+      email: $("#email").val(),
+      phone: $("#phone").val(),
+      address: $("#address").val(),
+      title: $("#title").val(),
+      type: $("#type").val(),
+      main: $("#main").prop("checked"),
+      billing: $("#billing").prop("checked"),
+      client_id: selectedClientId
+    };
+    addClientContact(data);
+  });
+
+  function addClientContact(data) {
+    fsAjax(
+      {
+        action: "addClientContact",
+        data,
+        mailbox_id: getGlobalAttr("mailbox_id"),
+        conversation_id: getGlobalAttr("conversation_id"),
+      },
+      laroute.route("sidebarwebhook.ajax"),
+      function (response) {
+        if (isAjaxSuccess(response)) {
+          ajaxFinish();
+          showFloatingAlert(
+            "success",
+            "Contact added to client successfully",
+            true
+          );
+          setTimeout(function () {
+            location.reload();
+          },3000);
+        } else {
+          ajaxFinish();
+          showAjaxError(response);
+        }
+      },
+      true
+    );
+  }
 
   function getSearchResults(searchTerm) {
     fsAjax(
@@ -69,7 +117,9 @@ $(document).ready(function () {
           class: "search-result-item search-item",
           "data-id": "client" + client.id,
           click: function () {
-            goClient(client.id, "add_contact");
+            $(".search-result-item").removeClass("selected-result");
+            $(this).addClass("selected-result");
+            displayClientContactForm(client.id);
           },
         });
         clientItem.append(
@@ -109,18 +159,16 @@ $(document).ready(function () {
     clientResults.empty();
     globalSearchResults.hide();
     $("#new-client-button").addClass("hide");
+    $("#new-client-contact").addClass("hide");
+    $("#add-client-contact-button").addClass("hide");
     clients = [];
   }
 
-  function goClient(id, action) {
-    window.open(
-      `https://mc2.townweb.com/clients/edit/${id}?action=${action}&${objectToQuery(user)}`,
-      "_blank"
-    );
-    clearResults();
-  }
-
-  function objectToQuery(obj) {
-    return Object.entries(obj).map(([key, val]) => `${encodeURIComponent(key)}=${encodeURIComponent(val)}`).join('&');
+  function displayClientContactForm(id) {
+    $("#new-client-contact").removeClass("hide");
+    $("#add-client-contact-button").removeClass("hide");
+    if (!$("#email").val()) $("#email").val(user.email);
+    if (!$("#phone").val()) $("#phone").val(user.phone);
+    selectedClientId = id;
   }
 });
