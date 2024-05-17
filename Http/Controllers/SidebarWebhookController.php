@@ -21,7 +21,6 @@ class SidebarWebhookController extends Controller
         return view('sidebarwebhook::mailbox_settings', [
             'settings' => [
                 'sidebarwebhook.url' => \Option::get('sidebarwebhook.url')[(string) $id] ?? '',
-                'sidebarwebhook.globalSearchUrl' => \Option::get('sidebarwebhook.globalSearchUrl')[(string) $id] ?? '',
                 'sidebarwebhook.secret' => \Option::get('sidebarwebhook.secret')[(string) $id] ?? '',
             ],
             'mailbox' => $mailbox
@@ -35,15 +34,12 @@ class SidebarWebhookController extends Controller
         $settings = $request->settings ?: [];
 
         $urls = \Option::get('sidebarwebhook.url') ?: [];
-        $globalSearchUrls = \Option::get('sidebarwebhook.globalSearchUrl') ?: [];
         $secrets = \Option::get('sidebarwebhook.secret') ?: [];
 
         $urls[(string) $id] = $settings['sidebarwebhook.url'] ?? '';
-        $globalSearchUrls[(string) $id] = $settings['sidebarwebhook.globalSearchUrl'] ?? '';
         $secrets[(string) $id] = $settings['sidebarwebhook.secret'] ?? '';
 
         \Option::set('sidebarwebhook.url', $urls);
-        \Option::set('sidebarwebhook.globalSearchUrl', $globalSearchUrls);
         \Option::set('sidebarwebhook.secret', $secrets);
 
         \Session::flash('flash_success_floating', __('Settings updated'));
@@ -60,32 +56,28 @@ class SidebarWebhookController extends Controller
             'status' => 'error',
             'msg' => '', // this is error message
         ];
+        // mailbox_id and customer_id are required.
+        if (!$request->mailbox_id || !$request->conversation_id) {
+            $response['msg'] = 'Missing required parameters';
+        }
+
+        try {
+            $mailbox = Mailbox::findOrFail($request->mailbox_id);
+            $conversation = Conversation::findOrFail($request->conversation_id);
+            $customer = $conversation->customer;
+        } catch (\Exception $e) {
+            $response['msg'] = 'Invalid mailbox or customer';
+        }
+
+        $url = \Option::get('sidebarwebhook.url')[(string) $mailbox->id] ?? '';
+        $secret = \Option::get('sidebarwebhook.secret')[(string) $mailbox->id] ?? '';
+        if (!$url) {
+            $response['msg'] = 'API Base URL is not set';
+        }
 
         switch ($request->action) {
 
             case 'loadSidebar':
-                // mailbox_id and customer_id are required.
-                if (!$request->mailbox_id || !$request->conversation_id) {
-                    $response['msg'] = 'Missing required parameters';
-                    break;
-                }
-
-                try {
-                    $mailbox = Mailbox::findOrFail($request->mailbox_id);
-                    $conversation = Conversation::findOrFail($request->conversation_id);
-                    $customer = $conversation->customer;
-                } catch (\Exception $e) {
-                    $response['msg'] = 'Invalid mailbox or customer';
-                    break;
-                }
-
-                $url = \Option::get('sidebarwebhook.url')[(string) $mailbox->id] ?? '';
-                $secret = \Option::get('sidebarwebhook.secret')[(string) $mailbox->id] ?? '';
-                if (!$url) {
-                    $response['msg'] = 'Webhook URL is not set';
-                    break;
-                }
-
                 $payload = [
                     'customerEmail' => $customer->getMainEmail(),
                     'customerPhones' => $customer->getPhones(),
@@ -97,10 +89,13 @@ class SidebarWebhookController extends Controller
 
                 try {
                     $client = new \GuzzleHttp\Client();
-                    $result = $client->post($url, [
+                    $result = $client->post($url . '/hook', [
                         'headers' => [
                             'Content-Type' => 'application/json',
                             'Accept' => 'text/html',
+                        ],
+                        'query' => [
+                            'token' => $secret
                         ],
                         'body' => json_encode($payload),
                     ]);
@@ -114,29 +109,9 @@ class SidebarWebhookController extends Controller
                 break;
 
             case 'searchClient':
-                if (!$request->mailbox_id) {
-                    $response['msg'] = 'Missing required parameters';
-                    break;
-                }
-
-                try {
-                    $mailbox = Mailbox::findOrFail($request->mailbox_id);
-                    $conversation = Conversation::findOrFail($request->conversation_id);
-                    $customer = $conversation->customer;
-                } catch (\Exception $e) {
-                    $response['msg'] = 'Invalid mailbox or customer';
-                    break;
-                }
-
-                $globalSearchUrl = \Option::get('sidebarwebhook.globalSearchUrl')[(string) $mailbox->id] ?? '';
-                $secret = \Option::get('sidebarwebhook.secret')[(string) $mailbox->id] ?? '';
-                if (!$globalSearchUrl) {
-                    $response['msg'] = 'Global Search URL is not set';
-                    break;
-                }
                 try {
                     $client = new \GuzzleHttp\Client();
-                    $result = $client->request('GET', $globalSearchUrl, [
+                    $result = $client->request('GET', $url . '/global/search', [
                         'headers' => [
                             'Content-Type' => 'application/json'
                         ],
@@ -144,6 +119,28 @@ class SidebarWebhookController extends Controller
                             'search' => $request->search,
                             'token' => $secret
                         ]
+                    ]);
+                    $response['data'] = $result->getBody()->getContents();
+                    $response['user'] = ["email" => $customer->getMainEmail(), 'phone' => $customer->getPhones()];
+                    $response['status'] = 'success';
+                } catch (\Exception $e) {
+                    $response['msg'] = 'Global search error: ' . $e->getMessage();
+                    break;
+                }
+
+                break;
+
+            case 'addClientContact':
+                try {
+                    $client = new \GuzzleHttp\Client();
+                    $result = $client->request('POST', $url . '/client-contacts', [
+                        'headers' => [
+                            'Content-Type' => 'application/json'
+                        ],
+                        'query' => [
+                            'token' => $secret
+                        ],
+                        'body' => json_encode($request->data),
                     ]);
                     $response['data'] = $result->getBody()->getContents();
                     $response['user'] = ["email" => $customer->getMainEmail(), 'phone' => $customer->getPhones()];

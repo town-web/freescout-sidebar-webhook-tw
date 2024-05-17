@@ -37,7 +37,7 @@ class SidebarWebhookServiceProvider extends ServiceProvider
         \Eventy::addFilter('javascripts', function ($javascripts) {
             $javascripts[] = \Module::getPublicPath('sidebarwebhook') . '/js/laroute.js';
             $javascripts[] = \Module::getPublicPath('sidebarwebhook') . '/js/module.js';
-            $javascripts[] = \Module::getPublicPath('sidebarwebhook') . '/js/search.js';
+            $javascripts[] = \Module::getPublicPath('sidebarwebhook') . '/js/client.js';
             return $javascripts;
         });
 
@@ -61,7 +61,7 @@ class SidebarWebhookServiceProvider extends ServiceProvider
 
             if ($url != '') {
                 echo \View::make(self::MODULE_NAME . '::partials/sidebar', [])->render();
-                echo \View::make(self::MODULE_NAME . '::partials/client_search_modal', [])->render();
+                echo \View::make(self::MODULE_NAME . '::partials/client_modal', [])->render();
             }
         }, -1, 3);
     }
