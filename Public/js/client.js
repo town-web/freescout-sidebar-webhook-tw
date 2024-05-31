@@ -6,7 +6,7 @@ $(document).ready(function () {
   let clients = [];
   let user = "";
   let searchTerm = "";
-  let selectedClientId = "";
+  let selectedClient = {};
 
   searchInput.on("input", function () {
     searchTerm = $(this).val();
@@ -24,7 +24,7 @@ $(document).ready(function () {
 
   $("#client-contact-form").on("submit", function (event) {
     event.preventDefault();
-    $("#add-client-contact-button").button('loading');
+    $("#add-client-contact-button").button("loading");
     const data = {
       first_name: $("#first_name").val(),
       last_name: $("#last_name").val(),
@@ -35,9 +35,20 @@ $(document).ready(function () {
       type: $("#type").val(),
       main: Number($("#main").prop("checked")),
       billing: Number($("#billing").prop("checked")),
-      client_id: selectedClientId
+      client_id: selectedClient.id,
+      municipality_id: selectedClient.municipality_id
     };
-    addClientContact(data);
+    searchContact(data.email).then((contacts) => {
+      if (!contacts.length && data.municipality_id) {
+        addContact(data).then((contact) => {
+          data.contact_id = contact.id;
+          addClientContact(data);
+        });
+      } else {
+        if (contacts.length) data.contact_id = contacts[0].id;
+        addClientContact(data);
+      }
+    });
   });
 
   function addClientContact(data) {
@@ -59,7 +70,7 @@ $(document).ready(function () {
           );
           setTimeout(function () {
             location.reload();
-          },1000);
+          }, 1000);
         } else {
           ajaxFinish();
           showAjaxError(response);
@@ -67,6 +78,55 @@ $(document).ready(function () {
       },
       true
     );
+  }
+
+  function searchContact(searchTerm) {
+    return new Promise((resolve, reject) => {
+      fsAjax(
+        {
+          action: "searchContact",
+          search: searchTerm,
+          mailbox_id: getGlobalAttr("mailbox_id"),
+          conversation_id: getGlobalAttr("conversation_id"),
+        },
+        laroute.route("sidebarwebhook.ajax"),
+        function (response) {
+          if (response.status == "success" && response.data) {
+            const data = JSON.parse(response.data || "{}");
+            resolve(data);
+          } else {
+            ajaxFinish();
+            showAjaxError(response);
+          }
+        },
+        true
+      );
+    });
+  }
+
+  function addContact(data) {
+    return new Promise((resolve, reject) => {
+      fsAjax(
+        {
+          action: "addContact",
+          data,
+          mailbox_id: getGlobalAttr("mailbox_id"),
+          conversation_id: getGlobalAttr("conversation_id"),
+        },
+        laroute.route("sidebarwebhook.ajax"),
+        function (response) {
+          if (isAjaxSuccess(response)) {
+            const data = JSON.parse(response.data || "{}");
+            resolve(data);
+          } else {
+            ajaxFinish();
+            showAjaxError(response);
+            reject();
+          }
+        },
+        true
+      );
+    });
   }
 
   function getSearchResults(searchTerm) {
@@ -119,7 +179,7 @@ $(document).ready(function () {
           click: function () {
             $(".search-result-item").removeClass("selected-result");
             $(this).addClass("selected-result");
-            displayClientContactForm(client.id);
+            displayClientContactForm(client);
           },
         });
         clientItem.append(
@@ -164,11 +224,11 @@ $(document).ready(function () {
     clients = [];
   }
 
-  function displayClientContactForm(id) {
+  function displayClientContactForm(client) {
     $("#new-client-contact").removeClass("hide");
     $("#add-client-contact-button").removeClass("hide");
     if (!$("#email").val()) $("#email").val(user.email);
     if (!$("#phone").val()) $("#phone").val(user.phone);
-    selectedClientId = id;
+    selectedClient = client;
   }
 });

@@ -130,6 +130,50 @@ class SidebarWebhookController extends Controller
 
                 break;
 
+            case 'searchContact':
+                try {
+                    $client = new \GuzzleHttp\Client();
+                    $result = $client->request('GET', $url . '/contacts/search', [
+                        'headers' => [
+                            'Content-Type' => 'application/json'
+                        ],
+                        'query' => [
+                            'search' => $request->search,
+                            'token' => $secret
+                        ]
+                    ]);
+                    $response['data'] = $result->getBody()->getContents();
+                    $response['user'] = ["email" => $customer->getMainEmail(), 'phone' => $customer->getPhones()];
+                    $response['status'] = 'success';
+                } catch (\Exception $e) {
+                    $response['msg'] = 'Global search error: ' . $e->getMessage();
+                    break;
+                }
+
+                break;
+
+            case 'addContact':
+                try {
+                    $client = new \GuzzleHttp\Client();
+                    $result = $client->request('POST', $url . '/contacts', [
+                        'headers' => [
+                            'Content-Type' => 'application/json'
+                        ],
+                        'query' => [
+                            'token' => $secret
+                        ],
+                        'body' => json_encode($request->data),
+                    ]);
+                    $response['data'] = $result->getBody()->getContents();
+                    $response['user'] = ["email" => $customer->getMainEmail(), 'phone' => $customer->getPhones()];
+                    $response['status'] = 'success';
+                } catch (\Exception $e) {
+                    $response['msg'] = 'Error: ' . $e->getMessage();
+                    break;
+                }
+
+                break;
+
             case 'addClientContact':
                 try {
                     $client = new \GuzzleHttp\Client();
@@ -146,7 +190,7 @@ class SidebarWebhookController extends Controller
                     $response['user'] = ["email" => $customer->getMainEmail(), 'phone' => $customer->getPhones()];
                     $response['status'] = 'success';
                 } catch (\Exception $e) {
-                    $response['msg'] = 'Global search error: ' . $e->getMessage();
+                    $response['msg'] = 'Error: ' . $e->getMessage();
                     break;
                 }
 

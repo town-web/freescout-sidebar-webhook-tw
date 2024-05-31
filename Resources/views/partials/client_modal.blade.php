@@ -1,4 +1,4 @@
-<div class="modal" style="padding-top: 10rem;" tabindex="-1" role="dialog" id="connect-modal">
+<div class="modal" style="padding-top: 10rem;" tabindex="-1" role="dialog" data-backdrop="false" id="connect-modal">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -113,11 +113,11 @@
         padding: 5px;
     }
 
-    .modal-backdrop {
-        z-index: -5;
-    }
-
     .modal-body {
         min-height: 5px;
+    }
+
+    #conv-layout-customer {
+        z-index: 1000;
     }
 </style>
